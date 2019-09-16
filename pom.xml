@@ -53,8 +53,8 @@
     <revision>2.6</revision>
     <changelist>-SNAPSHOT</changelist>
     <java.level>8</java.level>
-    <workflow-support.version>2.12</workflow-support.version>
-    <jenkins.version>2.60.3</jenkins.version>
+    <workflow-support.version>2.10</workflow-support.version>
+    <jenkins.version>2.164.1</jenkins.version>
     <!-- Run tests in parallel -->
     <forkCount>1C</forkCount>
   </properties>
@@ -92,7 +92,6 @@
         </exclusion>
       </exclusions>
     </dependency>
-
     <!-- Testing scope -->
     <dependency>
       <groupId>org.jenkins-ci.plugins.workflow</groupId>

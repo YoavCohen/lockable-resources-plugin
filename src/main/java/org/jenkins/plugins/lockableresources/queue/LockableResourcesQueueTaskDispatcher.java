@@ -169,7 +169,7 @@ public class LockableResourcesQueueTaskDispatcher extends QueueTaskDispatcher {
 	// Only for UI
 	@Restricted(NoExternalUse.class)
 	public static class BecauseResourcesQueueFailed extends CauseOfBlockage {
-		
+
 		@NonNull
 		private final LockableResourcesStruct resources;
 		@NonNull

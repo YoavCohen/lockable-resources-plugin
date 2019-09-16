@@ -37,6 +37,8 @@ import org.kohsuke.stapler.StaplerRequest;
 import edu.umd.cs.findbugs.annotations.Nullable;
 import javax.annotation.Nonnull;
 
+import org.jenkins.plugins.lockableresources.util.BuildIdentifier;
+
 @Extension
 public class LockableResourcesManager extends GlobalConfiguration {
 
@@ -45,7 +47,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
 	@Deprecated
 	private transient String priorityParameterName;
 	private List<LockableResource> resources;
-
+	private List<BuildIdentifier> prioritizedBuilds; /* <build_id, job_name> */
 
 	/**
 	 * Only used when this lockable resource is tried to be locked by {@link LockStep},
@@ -55,6 +57,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
 
 	public LockableResourcesManager() {
 		resources = new ArrayList<>();
+    prioritizedBuilds = new ArrayList<>();
 		load();
 	}
 
@@ -810,6 +813,23 @@ public class LockableResourcesManager extends GlobalConfiguration {
 			}
 		}
 
+    Run<?, ?> run = null;
+		try {
+       run = context.get(Run.class);
+    } catch (Exception ex) {
+		  LOGGER.warning("failed getting run object");
+      this.queuedContexts.add(new QueuedContextStruct(context, requiredResources, resourceDescription));
+      save();
+      return;
+    }
+    LOGGER.info("trying to queue lock for build " + run.getId() + " " + run.getParent().getFullName());
+    BuildIdentifier toCheck = new BuildIdentifier(run.getId(), run.getParent().getFullName());
+    for(BuildIdentifier p: this.prioritizedBuilds) {
+      if (toCheck.equals(p)) {
+        this.queuedContexts.add(0, new QueuedContextStruct(context, requiredResources, resourceDescription));
+      }
+    }
+
 		this.queuedContexts.add(new QueuedContextStruct(context, requiredResources, resourceDescription));
 		save();
 	}
@@ -841,6 +861,42 @@ public class LockableResourcesManager extends GlobalConfiguration {
                     LOGGER.log(Level.WARNING, "Failed to save " + getConfigFile(),e);
                 }
         }
+
+  public synchronized void prioritzeBuild(String buildID, String jobName) {
+    LOGGER.info("priortize API called " + buildID + " " + jobName);
+    Collections.sort(this.queuedContexts, new Comparator<QueuedContextStruct>() {
+      public int compare(QueuedContextStruct o1, QueuedContextStruct o2) {
+          try {
+              Run r1 = o1.getContext().get(Run.class);
+              Run r2 = o2.getContext().get(Run.class);
+
+              LOGGER.info("r1 info is: build_id: " + r1.getId() + " parent name: " + r1.getParent().getFullName());
+              LOGGER.info("r2 info is: build_id: " + r2.getId() + " parent name: " + r2.getParent().getFullName());
+
+              if(r1.getId().equals(r2.getId()) && r1.getParent().getFullName().equals(r2.getParent().getFullName())) {
+                return 0;
+              } else if(r1.getId().equals(buildID) && r1.getParent().getFullName().equals(jobName)) {
+                LOGGER.info("priortize API r1 is priortized");
+                return -1;
+              } else if(r2.getId().equals(buildID) && r2.getParent().getFullName().equals(jobName)) {
+                LOGGER.info("priortize API r2 is priortized");
+                return 1;
+              }
+
+          } catch (Exception e) {
+              LOGGER.log(Level.WARNING, "Failed to compare QueuedContextStruct objects" ,e);
+          }
+
+          return 0;
+      }
+     });
+    /* for future locks */
+    this.prioritizedBuilds.add(0, new BuildIdentifier(buildID, jobName));
+  }
+
+  public synchronized void removeFromPrioritizedBuilds(String buildID, String jobName){
+	  this.prioritizedBuilds.remove(new BuildIdentifier(buildID, jobName));
+  }
 
 	private static final Logger LOGGER = Logger.getLogger(LockableResourcesManager.class.getName());
 

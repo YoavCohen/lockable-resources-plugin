@@ -96,6 +96,7 @@ public class LockRunListener extends RunListener<Run<?, ?>> {
 					+ required);
 		}
 
+    LockableResourcesManager.get().removeFromPrioritizedBuilds(build.getId(), build.getParent().getFullName());
 	}
 
 	@Override
